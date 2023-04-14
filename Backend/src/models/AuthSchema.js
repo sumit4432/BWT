@@ -41,28 +41,29 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["admin", "seller", "buyer"],
+      default: "buyer",
     },
-
-    contactNumber: { type: String },
-    profilePicture: { type: String },
   },
   { timestamps: true }
 );
 
-// userSchema.virtual("password").set(function (password) {
-//   this.hash_password = bcrypt.hashSync(password, 10);
-// });
+userSchema.pre("save", function (next) {
+  if (!this.isModified(password)) {
+    return next();
+  }
 
-userSchema.virtual("fullName").get(function () {
-  return `${this.firstName} ${this.lastName}`;
+  bcrypt.hash(this.password, 10, (error, hash) => {
+    if (error) {
+      return resizeBy.status(404).json({ error });
+    }
+    this.password = hash;
+    next();
+  });
 });
 
-userSchema.methods = {
-  authenticate: async function (password) {
-    return await bcrypt.compare(password, this.hash_password);
-  },
+userSchema.methods.authenticate = function (password) {
+  return bcrypt.compareSync(password, this.password);
 };
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("UserAuth", userSchema);

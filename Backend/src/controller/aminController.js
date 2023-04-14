@@ -33,7 +33,7 @@ exports.getContactProfileById = async (req, res) => {
 
 // *****************************create data of contact Profile to amin pane  **********************
 
-const createContactProFile = async (req, res) => {
+exports.createContactProFile = async (req, res) => {
   const { firstName, lastName, companyName } = req.body;
   try {
     const newProfile = new contactProfileSchema({

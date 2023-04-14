@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
-const CategorySchema = new mongoose.Schema(
+const express = require("express");
+const slug = require("slugifiy");
+
+const CategoryModal = mongoose.Schema(
   {
     name: {
       type: String,
@@ -12,15 +15,31 @@ const CategorySchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    categoryImage: { type: String },
+
+    // categoryImage: { type: String },
+    // parentId: {
+    //   type: String,
+    // },
+
+    // type: {
+    //   type: String,
+    // },
+
     parentId: {
       type: String,
     },
 
-    type: {
-      type: String,
-    },
+    images: [
+      {
+        image: {
+          type: String,
+        },
+      },
+    ],
   },
+
   { timestamps: true }
 );
-module.exports = mongoose.model("category", CategorySchema);
+const Category = new mongoose.model("All Category", CategoryModal);
+
+module.exports = Category;

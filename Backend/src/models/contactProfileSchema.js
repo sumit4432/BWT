@@ -87,7 +87,7 @@ const contactSchema = mongoose.Schema({
   images: {
     type: String,
   },
-  accounTManger: {
+  accountManger: {
     type: String,
   },
 });
