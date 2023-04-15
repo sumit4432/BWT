@@ -1,130 +1,357 @@
-const Category = require("../models/category");
-const slugify = require("slugify");
-const shortid = require("shortid");
+const { default: slugify } = require("slugify");
+const AllCategory = require("../models/category");
+const ProductsSchema = require("../models/productSchema");
+const userSchema = require("../models/AuthSchema");
+const FormData = require("../models/formMiddleSchema");
 
-// create categories
+const { json } = require("body-parser");
+const contactProfileSchema = require("../models/contactProfileSchema");
+const formData = require("../models/formMiddleSchema");
 
-function createCategories(categories, parentId = null) {
-  const categoryList = [];
+// ****************Add category**********************
+
+function addCategories(categories, parentId = null) {
+  const categoriesList = [];
   let category;
-
-  if (parentId == null) {
-    category = categories.filter((cat) => cat.parentId == undefined);
+  if (parentId === nul) {
+    category = categories.filter((cat) => {
+      cat.parentId === undefined;
+    });
   } else {
-    category = categories.filter((cat) => cat.parentId == parentId);
+    category = categories.filter((cat) => cat.parentId === parentId);
   }
 
   for (let cate of category) {
-    categoryList.push({
+    categoriesList.push({
       _id: cate._id,
       name: cate.name,
       slug: cate.slug,
-      parentId: cate.parentId,
-      children: createCategories(categories, cate._id),
+      children: addCategories(categories, cate.id),
     });
   }
-
-  return categoryList;
+  return categoriesList;
 }
 
-// addCategory
+// ********************crreate category **********************
 
-exports.addCategory = (req, res) => {
-  const categoryObj = {
+exports.createCategory = async (req, res, next) => {
+  const createObject = {
     name: req.body.name,
-    slug: `${slugify(req.body.name)}-${shortid.generate()}`,
+    slug: slugify(req.body.name),
   };
 
-  if (req.file) {
-    categoryObj.categoryImage =
-      process.env.API + "/public/" + req.file.filename;
-  }
-
   if (req.body.parentId) {
-    categoryObj.parentId = req.body.parentId;
+    createObject.parentId = req.body.parentId;
+  } else {
+    createObject.parentId = null;
+  }
+  let image = [];
+  if (req.files && req.files.length > 0) {
+    image = req.files.map((file) => {
+      return { images: file.filename };
+    });
+    createObject.image = image;
   }
 
-  const cat = new Category(categoryObj);
+  // ***************************checking Parentid already Exists **************
 
-  cat
-    .save()
-    .then((category) => {
-      return res.status(201).json({ category });
-    })
-    .catch((error) => {
-      return res.status(500).json({ error });
-    });
+  const existsBySlug = await AllCategory(createObject);
+  cat.save((error, category) => {
+    if (error) {
+      return res.status(400).json({ error });
+    } else {
+      return res.status(200).json({ category });
+    }
+  });
 };
 
-// getCategory
+// *************  particular category **********************
 
-exports.getCategories = (req, res) => {
-  Category.find({})
-    .exec()
-    .then((categories) => {
-      const categoryList = createCategories(categories);
-      return res.status(200).json({ categories, categoryList });
-    })
-    .catch((error) => {
-      return res.status(500).json({ error });
-    });
+exports.getCateg0ries = async (req, res) => {
+  try {
+    const categories = await AllCategory.find({});
+    const categoryList = addCategories(categories);
+    res.status(200).json({ categoryList });
+  } catch (error) {
+    return resizeBy.status(400).json({ error });
+  }
 };
 
-// updateCategories
+// ************** Update Category ***********************
 
-exports.updateCategories = async (req, res) => {
-  const { _id, name, parentId, type } = req.body;
-  const updatedCategories = [];
-  if (name instanceof Array) {
-    for (let i = 0; i < name.length; i++) {
-      const category = {
-        name: name[i],
-        type: type[i],
-      };
-      if (parentId[i] !== "") {
-        category.parentId = parentId[i];
+exports.updateCategory = async (req, res) => {
+  const { name, parentId } = req.body;
+  const { categoryId } = req.params;
+
+  try {
+    const updateCategory = await AllCategory.findByIdAndUpdate(
+      categoryId,
+      { name: parentId },
+      { new: true }
+    );
+
+    if (!updateCategory) {
+      return res
+        .status(400)
+        .json({ error: "Could not update category, try again" });
+    } else {
+      res.status(200).json({ updateCategory });
+    }
+  } catch (error) {
+    res.status(400).json({ error });
+  }
+};
+
+// ********************* validator **************************
+
+exports.createCategory = async (req, res, next) => {
+  await body("name").noEmpty().withMessage("name is requir").run(req);
+  await body("name")
+    .custom(async (value) => {
+      const existingCategory = await AllCategory.findOne({ name: value });
+      if (existingCategory) {
+        throw new errors("category name already Exisit");
       }
-
-      const updatedCategory = await Category.findOneAndUpdate(
-        { _id: _id[i] },
-        category,
-        { new: true }
-      );
-
-      updatedCategories.push(updatedCategory);
-    }
-    return res.status(201).json({ updatedCategories: updatedCategories });
-  } else {
-    const category = {
-      name,
-      type,
-    };
-
-    if (parentId !== "") {
-      category.parentId = parentId;
-    }
-
-    const updatedCategory = await Category.findOneAndUpdate({ _id }, category, {
-      new: true,
-    });
-    updatedCategories.push(updatedCategory);
+    })
+    .run(req);
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
-  return res.status(201).json({ updatedCategories: updatedCategories });
 };
 
-// deleteCategory
+const createObject = {
+  name: req.body.name,
+  slug: slugify(req.body.name),
+};
 
-exports.deleteCategories = async (req, res) => {
-  const { ids } = req.body.payload;
-  const deletedCategories = [];
-  for (let i = 0; i < ids.length; i++) {
-    const deleteCategory = await Category.findOneAndDelete({ _id: ids[i]._id });
-    deletedCategories.push(deleteCategory);
-  }
+if (req.body.parentId) {
+  createObject.parentId = req.body.parentId;
+} else {
+  createObject, (parentId = null);
+}
 
-  if (deletedCategories.length == ids.length) {
-    return res.status(200).json({ message: "categories removed" });
+let image = [];
+
+image = req.files
+  ? req.files.map((fiel) => {
+      return { image: file.filename };
+    })
+  : [];
+
+createObject.image = req.files
+  ? req.files.map((file) => {
+      return { image: file.filename };
+    })
+  : [];
+
+// **********check category with parentid **********************
+
+const existsBySlug = await AllCategory.findOne({
+  slug: createObject.slug,
+});
+if (existsBySlug) {
+  return res
+    .status(400)
+    .json({ message: "A category with same slug already exists" });
+}
+
+const cat = new AllCategory(createObject);
+cat.save((error, category) => {
+  if (error) {
+    return res.status(400).json({ error });
   } else {
-    res.status(500).json({ message: "Something went wor" });
+    res.status(200).json({ category });
+  }
+});
+
+// ***************GET ALL PRODUCTS ***************************
+
+exports.getAllProducts = async (req, res) => {
+  try {
+    const Allproducts = await createProducts.find();
+    if (!Allproducts) {
+      res.status(201);
+    } else {
+      res.status(201).json({ Allproducts, success: true });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Data is not Found" });
+  }
+};
+
+// *************** SingleProduct ***************************
+
+exports.getSingleProducts = async (req, res) => {
+  try {
+    const SingleProduct = await ProductsSchema.find();
+    if (!SingleProduct) {
+      res.status(201);
+    } else {
+      res.status(201).json({
+        SingleProduct,
+        success: true,
+      });
+    }
+  } catch (error) {
+    res.status(400).json({ error });
+  }
+};
+
+// *****************contactProfile **************************
+
+exports.contactProfile = async (req, res) => {
+  const userId = req.body;
+  try {
+    const user = await userSchema.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "Profile does not match" });
+    }
+    const {
+      firstName,
+      lastName,
+      companyName,
+      country,
+      state,
+      city,
+      address,
+      landmark,
+      zipcode,
+      phone,
+      email,
+      altPhone,
+      AltEmail,
+      yearofEst,
+      businessType,
+      owershipType,
+      empolyeeStrength,
+      annualTurnOver,
+      facebookLink,
+      instragramLink,
+      companyDecs,
+      ifscCode,
+      accNum,
+      accType,
+      images,
+    } = req.body;
+
+    const updateData = {
+      firstName,
+      lastName,
+      companyName,
+      country,
+      state,
+      city,
+      address,
+      landmark,
+      zipcode,
+      phone,
+      email,
+      altPhone,
+      AltEmail,
+      yearofEst,
+      businessType,
+      owershipType,
+      empolyeeStrength,
+      annualTurnOver,
+      facebookLink,
+      instragramLink,
+      companyDecs,
+      ifscCode,
+      accNum,
+      image,
+      accType,
+    };
+    const data = await contactProfileSchema.findOneAndUpdate(
+      { userId: userId },
+      updateData,
+      { new: true, upsert: true }
+    );
+
+    data.save();
+    res
+      .status(201)
+      .json({ message: "Cotact profile update succesfully", data });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ e9rror: "internal server error" });
+  }
+};
+
+// **************update contactProfile Data *********************
+
+exports.GetUserByLogin = async (req, res) => {
+  const userId = req.user._id;
+  if (!usrId) {
+    res.status(401).json({ error: "Please Login" });
+  } else {
+    try {
+      const data = await contactProfileSchema.findOne({ userId: userId });
+      if (data) {
+        res.status(201).json({ data });
+      } else {
+        res.status(401).json({ error: "user not found" });
+      }
+    } catch {
+      console.log(error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+};
+
+// ****************middleware  here seller formdata**************************
+
+exports.setMiddlewareSubmission = async (req, res, next) => {
+  const userId = req.body._id;
+
+  try {
+    const user = await FormData.findOne({ userId }).exec();
+    if (user) {
+      next();
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// *****************SubmitFormCheck ****************************
+
+exports.SubmitForm = async (req, res) => {
+  const userId = req.user._id;
+
+  try {
+    const user = await userSchema.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: "user not found" });
+    } else {
+      const { name, gstnumb, email } = req.body;
+      const data = new formData({ name, gstnumb, email, userId });
+      await data.save();
+      res.status({ success: true, data });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ********************getUperFormDta Check **********************
+
+exports.getUserFormDetails = async (req, res) => {
+  const userId = req.userId._id;
+  if (!userId) {
+    res.status(404).json({ message: "Plase login" });
+  }
+  try {
+    const data = await formData.findOne({ userINFO: userId });
+    if (data) {
+      res.status(201).json({ data });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(404).json({ error: "Internal server Error" });
   }
 };

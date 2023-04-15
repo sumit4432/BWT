@@ -40,6 +40,6 @@ const CategoryModal = mongoose.Schema(
 
   { timestamps: true }
 );
-const Category = new mongoose.model("All Category", CategoryModal);
+const Category = new mongoose.model("AllCategory", CategoryModal);
 
 module.exports = Category;
